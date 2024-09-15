@@ -1,0 +1,56 @@
+import socket
+import firebase_admin
+from firebase_admin import credentials, db
+from firebase_admin import firestore
+from twilio.rest import Client
+HOST = '192.168.218.190'  
+PORT = 12345  
+def run_python_script():
+    account_sid = 'insert_twilio_sid'
+    auth_token = 'insert_authorization_token'
+    client = Client(account_sid, auth_token)
+    cred = credentials.Certificate("c:\\Users\\kmegh\\Downloads\\voice-app-37476-dbbe249ca51d.json")
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    users_ref = db.collection('Contacts')
+    docs = users_ref.stream()
+    l = []
+    for doc in docs:
+    # print(f'{doc.id} => {doc.to_dict()}')
+        l.append(doc.to_dict()['phoneNumber'])
+    print(l)
+    users_ref1 = db.collection('Location')
+    docs1 = users_ref1.stream()
+    for doc in docs1:
+        geo_point = doc.get('Address')
+        latitude = str(geo_point.latitude)
+        longitude = str(geo_point.longitude)
+    loc = 'https://maps.google.com/?q='+latitude+','+longitude
+    users_ref2 = db.collection('users')
+    docs2 = users_ref2.stream()
+    for doc in docs2:
+        name = doc.to_dict()['name']
+    message = client.messages.create(
+    from_='+15672263494',
+    body = name+' is in danger and requires your assistance. Send help to LOCATION => '+loc+' ',
+    to='+919526049320'
+    )
+    print(message.sid)
+    default_app = firebase_admin.get_app()
+    firebase_admin.delete_app(default_app)
+def main():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind((HOST, PORT))
+        server_socket.listen()
+        print("Server listening on", HOST, "port", PORT)
+        while True:
+            conn, addr = server_socket.accept()
+            with conn:
+                print("ALERT TRIGGERED!!!")
+                print('Connected by', addr)
+                data = conn.recv(1024)
+                if data:
+                    run_python_script()
+                    conn.sendall(b'Success')  
+main()
+
